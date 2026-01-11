@@ -18,6 +18,16 @@ This library provides a clean, simple interface for:
 pip install -e .
 ```
 
+## Local Development with Docker Compose
+
+To test with the default local docker-compose deployment of the pipeline NIMs:
+
+```bash
+source scripts/setup_local_env_paths.sh
+```
+
+This configures the environment variables for connecting to locally deployed NIM services.
+
 ## Quick Start
 
 ### Using Glob Paths

@@ -58,7 +58,7 @@ JSON-loadable configuration for processing tasks.
 from devin_experimental import TaskConfig, DEFAULT_TASK_CONFIG
 
 # Use default config
-results = client.process_pdf_files("/data/*.pdf", task_config=DEFAULT_TASK_CONFIG)
+results = client.process_files("/data/*.pdf", task_config=DEFAULT_TASK_CONFIG)
 
 # Load from JSON file
 config = TaskConfig.from_file("config.json")

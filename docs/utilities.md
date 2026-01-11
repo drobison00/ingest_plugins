@@ -39,5 +39,5 @@ from devin_experimental import write_results_to_directory
 def on_result(cm):
     write_results_to_directory("/output", cm)
 
-results = client.process_pdf_files("/data/*.pdf", on_result=on_result)
+results = client.process_files("/data/*.pdf", on_result=on_result)
 ```

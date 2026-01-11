@@ -48,12 +48,9 @@ sink = get_stage_actor(interface, "broker_response")
 # Create client
 client = ProcessingClient(source=source, sink=sink, show_progress=True)
 
-# Process files using glob patterns
+# Process files using glob patterns (auto-detects document type)
 results = client.process_files("/data/*.pdf", task_config=DEFAULT_TASK_CONFIG)
-
-# Or use document-type specific methods
-results = client.process_pdf_files("/data/documents/*.pdf")
-results = client.process_image_files("/data/images/*.jpg")
+results = client.process_files("/data/images/*.jpg", task_config=DEFAULT_TASK_CONFIG)
 ```
 
 ### Using BytesIO Objects

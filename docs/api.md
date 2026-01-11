@@ -36,50 +36,9 @@ client = ProcessingClient(
 )
 ```
 
-### Document-Type Specific Methods
-
-```python
-# Process any files (auto-detects type from extension)
-results = client.process_files("/data/*")
-
-# PDF files
-results = client.process_pdf_files("/data/*.pdf", task_config=config)
-
-# Office documents
-results = client.process_docx_files("/data/*.docx")
-results = client.process_pptx_files("/data/*.pptx")
-
-# Images (JPEG, PNG, BMP, TIFF)
-results = client.process_image_files("/data/*.jpg", caption_options=caption_opts)
-
-# Text files (TXT, MD, JSON)
-results = client.process_text_files("/data/*.txt", split_options=split_opts)
-
-# HTML files
-results = client.process_html_files("/data/*.html")
-
-# Audio files (MP3, WAV)
-results = client.process_audio_files("/data/*.mp3")
-```
-
-### `client.process_pdf_files(pattern_or_files, ...)`
-
-Process PDF files from a glob pattern or list of paths.
-
-```python
-# From glob pattern
-results = client.process_pdf_files("/data/*.pdf", task_config=config)
-
-# From list of paths
-results = client.process_pdf_files(["/path/to/a.pdf", "/path/to/b.pdf"])
-
-# Repeat files to reach N total jobs
-results = client.process_pdf_files("/data/*.pdf", repeat_to=100)
-```
-
 ### `client.process_files(files, ...)`
 
-Process files from mixed input types (paths, bytes, BytesIO, FileInput).
+Process files from glob patterns, paths, bytes, BytesIO, or FileInput. Document type is auto-detected from the file extension.
 
 ```python
 from io import BytesIO

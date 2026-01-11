@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "devin_experimental"
+version = "0.1.0"
+description = "A lightweight library for running in-process NV-Ingest pipelines with direct submission"
+requires-python = ">=3.10"
+
+dependencies = [
+    "nv-ingest",
+    "nv-ingest-api",
+    "tqdm",
+    "ray",
+    "pandas",
+    "pydantic",
+]
+
+[project.optional-dependencies]
+pdf = ["pypdfium2"]
+test = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["devin_experimental*"]

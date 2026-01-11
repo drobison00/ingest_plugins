@@ -1,0 +1,239 @@
+# Example Pipeline Configuration for Direct Submit
+# This pipeline uses DirectSubmitSourceStage and OutputQueueSinkStage
+# for in-process job submission and result collection.
+
+name: "NVIngest Direct Submit Pipeline"
+description: "Pipeline for direct ControlMessage submission with in-process output sink"
+
+stages:
+  # Source (direct submit) - receives jobs from ProcessingClient
+  - name: "source_stage"
+    type: "source"
+    phase: 0  # PRE_PROCESSING
+    actor: "devin_experimental.stages.direct_submit_source:DirectSubmitSourceStage"
+    config:
+      poll_interval: 0.001
+      max_buffer_size: 50000
+    replicas:
+      min_replicas: 1
+      max_replicas:
+        strategy: "static"
+        value: 1
+      static_replicas:
+        strategy: "static"
+        value: 1
+
+  # Pre-processing
+  - name: "metadata_injector"
+    type: "stage"
+    phase: 0  # PRE_PROCESSING
+    actor: "nv_ingest.framework.orchestration.ray.stages.injectors.metadata_injector:MetadataInjectionStage"
+    config: {}
+    replicas:
+      min_replicas: 0
+      max_replicas:
+        strategy: "static"
+        value: 4
+      static_replicas:
+        strategy: "static"
+        value: 4
+    runs_after:
+      - "source_stage"
+
+  # PDF Extraction
+  - name: "pdf_extractor"
+    type: "stage"
+    phase: 1  # EXTRACTION
+    actor: "nv_ingest.framework.orchestration.ray.stages.extractors.pdf_extractor:PDFExtractorStage"
+    config:
+      pdfium_config:
+        auth_token: $NGC_API_KEY|$NVIDIA_API_KEY
+        yolox_endpoints: [
+          $YOLOX_GRPC_ENDPOINT|"page-elements:8001",
+          $YOLOX_HTTP_ENDPOINT|"http://page-elements:8000/v1/infer",
+        ]
+        yolox_infer_protocol: $YOLOX_INFER_PROTOCOL|grpc
+    replicas:
+      min_replicas: 0
+      max_replicas:
+        strategy: "memory_thresholding"
+        memory_per_replica_mb: 1000
+      static_replicas:
+        strategy: "memory_static_global_percent"
+        memory_per_replica_mb: 1000
+        limit: 8
+
+  # Table Extraction
+  - name: "table_extractor"
+    type: "stage"
+    phase: 1  # EXTRACTION
+    actor: "nv_ingest.framework.orchestration.ray.stages.extractors.table_extractor:TableExtractorStage"
+    config:
+      endpoint_config:
+        yolox_endpoints: [
+          $YOLOX_TABLE_STRUCTURE_GRPC_ENDPOINT|"table-structure:8001",
+          $YOLOX_TABLE_STRUCTURE_HTTP_ENDPOINT|"http://table-structure:8000/v1/infer",
+        ]
+        yolox_infer_protocol: $YOLOX_TABLE_STRUCTURE_INFER_PROTOCOL|grpc
+        ocr_endpoints: [
+          $OCR_GRPC_ENDPOINT|"ocr:8001",
+          $OCR_HTTP_ENDPOINT|"http://ocr:8000/v1/infer",
+        ]
+        ocr_infer_protocol: $OCR_INFER_PROTOCOL|grpc
+        auth_token: $NGC_API_KEY|$NVIDIA_API_KEY
+    replicas:
+      min_replicas: 0
+      max_replicas:
+        strategy: "memory_thresholding"
+        memory_per_replica_mb: 1000
+      static_replicas:
+        strategy: "memory_static_global_percent"
+        memory_per_replica_mb: 1000
+        limit: 3
+
+  # Chart Extraction
+  - name: "chart_extractor"
+    type: "stage"
+    phase: 1  # EXTRACTION
+    actor: "nv_ingest.framework.orchestration.ray.stages.extractors.chart_extractor:ChartExtractorStage"
+    config:
+      endpoint_config:
+        yolox_endpoints: [
+          $YOLOX_GRAPHIC_ELEMENTS_GRPC_ENDPOINT|"graphic-elements:8001",
+          $YOLOX_GRAPHIC_ELEMENTS_HTTP_ENDPOINT|"",
+        ]
+        yolox_infer_protocol: $YOLOX_GRAPHIC_ELEMENTS_INFER_PROTOCOL|grpc
+        ocr_endpoints: [
+          $OCR_GRPC_ENDPOINT|"ocr:8001",
+          $OCR_HTTP_ENDPOINT|"",
+        ]
+        ocr_infer_protocol: $OCR_INFER_PROTOCOL|grpc
+        auth_token: $NGC_API_KEY|$NVIDIA_API_KEY
+    replicas:
+      min_replicas: 0
+      max_replicas:
+        strategy: "memory_thresholding"
+        memory_per_replica_mb: 1000
+      static_replicas:
+        strategy: "memory_static_global_percent"
+        memory_per_replica_mb: 1000
+        limit: 3
+
+  # OCR Extraction
+  - name: "ocr_extractor"
+    type: "stage"
+    phase: 1  # EXTRACTION
+    actor: "nv_ingest.framework.orchestration.ray.stages.extractors.ocr_extractor:OCRExtractorStage"
+    config:
+      endpoint_config:
+        ocr_endpoints: [
+          $OCR_GRPC_ENDPOINT|"ocr:8001",
+          $OCR_HTTP_ENDPOINT|"http://ocr:8000/v1/infer",
+        ]
+        ocr_infer_protocol: $OCR_INFER_PROTOCOL|grpc
+        auth_token: $NGC_API_KEY|$NVIDIA_API_KEY
+    replicas:
+      min_replicas: 0
+      max_replicas:
+        strategy: "static"
+        value: 4
+      static_replicas:
+        strategy: "static"
+        value: 3
+
+  # Text Splitting
+  - name: "text_splitter"
+    type: "stage"
+    phase: 4  # TRANSFORM
+    actor: "nv_ingest.framework.orchestration.ray.stages.transforms.text_splitter:TextSplitterStage"
+    config:
+      chunk_size: 512
+      chunk_overlap: 20
+    replicas:
+      min_replicas: 0
+      max_replicas:
+        strategy: "static"
+        value: 3
+      static_replicas:
+        strategy: "static"
+        value: 2
+
+  # Text Embedding
+  - name: "text_embedder"
+    type: "stage"
+    phase: 4  # TRANSFORM
+    actor: "nv_ingest.framework.orchestration.ray.stages.transforms.text_embed:TextEmbeddingTransformStage"
+    config:
+      api_key: $NGC_API_KEY|$NVIDIA_API_KEY
+      embedding_model: $EMBEDDING_NIM_MODEL_NAME|"nvidia/llama-3.2-nv-embedqa-1b-v2"
+      embedding_nim_endpoint: $EMBEDDING_NIM_ENDPOINT|"http://embedding:8000/v1"
+    replicas:
+      min_replicas: 0
+      max_replicas:
+        strategy: "static"
+        value: 4
+      static_replicas:
+        strategy: "static"
+        value: 3
+
+  # Output Sink - collects results for ProcessingClient
+  - name: "broker_response"
+    type: "sink"
+    phase: 5  # RESPONSE
+    actor: "devin_experimental.stages.output_queue_sink:OutputQueueSinkStage"
+    config:
+      max_buffer_size: 50000
+    replicas:
+      min_replicas: 1
+      max_replicas:
+        strategy: "static"
+        value: 2
+      static_replicas:
+        strategy: "static"
+        value: 1
+
+edges:
+  # Intake
+  - from: "source_stage"
+    to: "metadata_injector"
+    queue_size: 4
+
+  # Extraction pipeline
+  - from: "metadata_injector"
+    to: "pdf_extractor"
+    queue_size: 8
+  - from: "pdf_extractor"
+    to: "table_extractor"
+    queue_size: 4
+  - from: "table_extractor"
+    to: "chart_extractor"
+    queue_size: 4
+  - from: "chart_extractor"
+    to: "ocr_extractor"
+    queue_size: 8
+  - from: "ocr_extractor"
+    to: "text_splitter"
+    queue_size: 4
+
+  # Transform pipeline
+  - from: "text_splitter"
+    to: "text_embedder"
+    queue_size: 4
+  - from: "text_embedder"
+    to: "broker_response"
+    queue_size: 4
+
+# Pipeline Runtime Configuration
+pipeline:
+  disable_dynamic_scaling: $INGEST_DISABLE_DYNAMIC_SCALING|false
+  dynamic_memory_threshold: $INGEST_DYNAMIC_MEMORY_THRESHOLD|0.75
+  static_memory_threshold: $INGEST_STATIC_MEMORY_THRESHOLD|0.75
+  pid_controller:
+    kp: $INGEST_DYNAMIC_MEMORY_KP|0.2
+    ki: $INGEST_DYNAMIC_MEMORY_KI|0.01
+    ema_alpha: $INGEST_DYNAMIC_MEMORY_EMA_ALPHA|0.1
+    target_queue_depth: $INGEST_DYNAMIC_MEMORY_TARGET_QUEUE_DEPTH|0
+    penalty_factor: $INGEST_DYNAMIC_MEMORY_PENALTY_FACTOR|0.1
+    error_boost_factor: $INGEST_DYNAMIC_MEMORY_ERROR_BOOST_FACTOR|1.5
+    rcm_memory_safety_buffer_fraction: $INGEST_DYNAMIC_MEMORY_RCM_MEMORY_SAFETY_BUFFER_FRACTION|0.15
+  launch_simple_broker: $INGEST_LAUNCH_SIMPLE_BROKER|false
